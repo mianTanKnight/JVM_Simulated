@@ -11,10 +11,11 @@ public interface SimulatedGC {
     @Nullable
     ArrayList<SimulatedObject> getRootObjs();
 
+
+
     long safeTime();
 
 
-//    List<>
 
 
 

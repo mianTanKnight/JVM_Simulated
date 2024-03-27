@@ -1,23 +1,14 @@
 
 package org.weishen.gc_.heap_;
 
-import org.weishen.gc_.obj_.SimulatedObject;
 
-import java.lang.reflect.InvocationTargetException;
+import java.io.IOException;
 
 /**
  * 模拟堆的标准接口。
  * 定义了模拟堆应支持的核心操作，包括创建对象、内存分配和释放等。
  */
 public interface SimulatedHeap {
-
-    /**
-     * 根据类创建新的模拟对象。
-     *
-     * @param clazz 要创建对象的类
-     * @return 创建的模拟对象
-     */
-    <T extends SimulatedObject> T new_(Class<T> clazz, Object... constructorArgs) throws Exception;
 
     /**
      * 获取模拟堆的总容量。
@@ -53,6 +44,12 @@ public interface SimulatedHeap {
      * @throws Exception 可能抛出移动过程中的异常
      */
     void move(int srcPoint, int desPoint, int size) throws Exception;
+
+
+
+
+    void memSet(Object o, String generation) throws IOException, OutOfMemoryError, Exception;
+
 
 
     String getHeapDetails();

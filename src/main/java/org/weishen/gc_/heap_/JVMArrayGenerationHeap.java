@@ -3,13 +3,10 @@ package org.weishen.gc_.heap_;
 import jakarta.annotation.Nullable;
 import org.weishen.gc_.ds_.DoublySkipList;
 import org.weishen.gc_.gcm_.SimulatedGC;
-import org.weishen.gc_.obj_.ObjTest;
-import org.weishen.gc_.obj_.SimulatedObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
-import java.lang.reflect.Constructor;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -90,16 +87,12 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
      * <p>
      * 我们要设置四个指针地址和回收集 分别对应这每个代
      */
-    private static final String EDEN_ = "eden_";
-    private static final String SV1_ = "sv1_";
-    private static final String SV2_ = "sv2_";
-    private static final String OLD_ = "old_";
-
-    private static final int memoryBasePace = 8;
+    public static final String EDEN_ = "eden_";
+    public static final String SV1_ = "sv1_";
+    public static final String SV2_ = "sv2_";
+    public static final String OLD_ = "old_";
 
     private final Map<String, Integer> assignedAddressPointers = new HashMap<>();
-
-    private final SimulatedGC gc;
 
     /**
      * 已释放的内存地址映射。
@@ -150,33 +143,22 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
      */
     private final Object memLock = new Object();
 
-
     /***容量***/
     private final int capacity;
 
     /**
-     * 支持stw(世界停止)的全局App锁
-     * 模拟内存被触发GC时间会使用此锁控制
-     * 所以的方法都执行前都要获取到此锁
-     * GC stw 是写锁其余都是读锁
-     */
-//    private final ReentrantReadWriteLock stwLockOfApp;
-
-    /**
      * 创建JVM堆内存区域。
      *
-     * @param gc           垃圾收集器实例
      * @param capacity     堆的最大容量，自动调整为8的倍数以避免溢出
-     * @param stwLockOfApp 应用程序的读写锁
      */
-    public JVMArrayGenerationHeap(SimulatedGC gc, int capacity, ReentrantReadWriteLock stwLockOfApp) {
+    public JVMArrayGenerationHeap(int capacity) {
         assert capacity > 0;
         // 确保容量是8的倍数以避免溢出
         this.capacity = capacity & (~7);
-        this.gc = gc;
         this.heapMemory = new byte[this.capacity];
         initializePointers();
     }
+
 
     /**
      * 初始化堆中各个区域的指针。
@@ -250,17 +232,10 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
             //检查可使用的回收内存
             Integer freeMemoryPointer = findInFreedMemory(normalizedSize, generation);
             if (null != freeMemoryPointer) return freeMemoryPointer;
-            //检查是否冲满
+            // 不需要给heap 带来太多不是它的责任的工作 allocate 只负责检查复用和申请 如果不够直接抛 由外层保证
             if (isSpaceFull(normalizedSize, generation)) {
-                //
-//              gc.performGC(this,generation);//触发指定GC
-                //try again
-                freeMemoryPointer = findInFreedMemory(normalizedSize, generation);
-                if (null != freeMemoryPointer)
-                    return freeMemoryPointer;
                 // throw omm
                 throw new OutOfMemoryError("Heap space is full in " + generation + " generation.");
-
             }
             allocatePointer = assignedAddressPointers.get(generation);
             assignedAddressPointers.put(generation, allocatePointer + normalizedSize);
@@ -325,49 +300,6 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
             return allocatedPointer;
         }
         return null;
-    }
-
-
-    /**
-     * 在整个模拟环境中 所有的对象创建 使用this.new_ 代替关键字new
-     * 这些对象不管是静态对象 成员对象 还是局部对象 这就是整个环境能生效的关键
-     * 我们需要使用new_ 构建GCRoot集
-     * 提供一种注册的模式
-     * 例如 如果还方法内的局部变量 A一定会继承 SimulatedObject
-     * void test(){
-     *     A a = Heap.new_(A.class ,args)
-     * }
-     * 首先调用执行test的thread f 就是GCRoot
-     * a 是 GCRoot 子节点 就像树
-     *
-     * 那么我们需要做的进一步是继续解析A 中  SimulatedObject 成员变量
-     * 如果 a.xx(); 调用了a的函数 那就 f为根节点  a子节点的节点
-     *
-     *
-     *
-     *
-     */
-    public <T extends SimulatedObject> T new_(Class<T> clazz, Object... constructorArgs) throws Exception {
-        // 查找匹配的构造函数
-        Constructor<T> constructor = null;
-        for (Constructor<?> ctor : clazz.getConstructors()) {
-            if (ctor.getParameterTypes().length == constructorArgs.length) {
-                constructor = (Constructor<T>) ctor;
-                break;
-            }
-        }
-        if (constructor == null) {
-            throw new NoSuchMethodException("No suitable constructor found for " + clazz);
-        }
-
-        // 创建实例
-        T instance = constructor.newInstance(constructorArgs);
-
-        // 在指定 generation 中申请内存 并以序列号写入内存
-        memSet(instance, EDEN_);
-
-        // 返回类型化的实例
-        return instance;
     }
 
 
@@ -608,54 +540,5 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
         return String.format("%s: Used: %d, Free: %d", Generation, getUsedOfGeneration(Generation), getFreeGeneration(Generation));
     }
 
-
-    public static void main(String[] args) throws Exception {
-        JVMArrayGenerationHeap jvmArrayGenerationHeap = new JVMArrayGenerationHeap(null, Integer.MAX_VALUE, null);
-        for (int i = 0; i < 1; i++) {
-            ObjTest objTest = jvmArrayGenerationHeap.new_(ObjTest.class,"张三");
-            System.out.println(objTest.getName());
-        }
-
-//        Random random = new Random();
-//        List<Long> ca = new ArrayList<>();
-//        for (int i = 0; i < 1000; i++) {
-//            int size = (random.nextInt(1000) + 7) & ~7;
-//            int point = jvmArrayGenerationHeap.allocate(size, EDEN_);
-//            long pointAndSize = ((long) point << 32) | size;
-//            ca.add(pointAndSize);
-//        }
-//        // 释放第25个分配的内存块
-//        long pointAndSize = ca.get(25);
-//        int point = (int) (pointAndSize >> 32); // 取出point
-//        int size = (int) (pointAndSize & 0xFFFFFFFFL); // 取出size
-//        jvmArrayGenerationHeap.free(point, size);
-//        //再free 26 结果应该是mrage 成功
-//        long pointAndSize1 = ca.get(26);
-//        int point1 = (int) (pointAndSize1 >> 32); // 取出point
-//        int size1 = (int) (pointAndSize1 & 0xFFFFFFFFL); // 取出size
-//        jvmArrayGenerationHeap.free(point1, size1);
-//        //再free 24 结果应该是mrage 成功
-//        long pointAndSize2 = ca.get(24);
-//        int point2 = (int) (pointAndSize2 >> 32); // 取出point
-//        int size2 = (int) (pointAndSize2 & 0xFFFFFFFFL); // 取出size
-//        jvmArrayGenerationHeap.free(point2, size2);
-//
-//        System.out.println(jvmArrayGenerationHeap.getHeapDetails());
-//
-//        //尝试复用已回收的缓冲
-//        jvmArrayGenerationHeap.allocate((16) & ~7, EDEN_);
-//
-//        System.out.println(jvmArrayGenerationHeap.getHeapDetails());
-//
-//        //把 500 move 到 sv1中
-//        long pointAndSize3 = ca.get(500);
-//        int point3 = (int) (pointAndSize3 >> 32); // 取出point
-//        int size3 = (int) (pointAndSize3 & 0xFFFFFFFFL); // 取出size
-//        int allocate = jvmArrayGenerationHeap.allocate(size3, SV1_);
-//        jvmArrayGenerationHeap.move(point3, allocate, size3);
-//
-        System.out.println(jvmArrayGenerationHeap.getHeapDetails());
-
-    }
 
 }
