@@ -1,14 +1,12 @@
-package org.weishen.gc_.heap_;
+package org.weishen.gc_.heap;
 
-import jakarta.annotation.Nullable;
-import org.weishen.gc_.ds_.DoublySkipList;
-import org.weishen.gc_.gcm_.SimulatedGC;
+import org.weishen.gc_.ds.DoublySkipList;
+import org.weishen.gc_.obj_.SimulatedObj;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.*;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * JVM 堆的严谨模拟
@@ -149,7 +147,7 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
     /**
      * 创建JVM堆内存区域。
      *
-     * @param capacity     堆的最大容量，自动调整为8的倍数以避免溢出
+     * @param capacity 堆的最大容量，自动调整为8的倍数以避免溢出
      */
     public JVMArrayGenerationHeap(int capacity) {
         assert capacity > 0;
@@ -256,15 +254,12 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
         Integer point = assignedAddressPointers.get(generation);
         assert null != point;
         int nextPoint = point + size;
-        if (generation.equals(EDEN_)) {
-            return nextPoint >= survivor1Pointer;
-        } else if (generation.equals(SV1_)) {
-            return nextPoint >= survivor2Pointer;
-        } else if (generation.equals(SV2_)) {
-            return nextPoint >= oldPointer;
-        } else {
-            return nextPoint >= capacity;
-        }
+        return switch (generation) {
+            case EDEN_ -> nextPoint >= survivor1Pointer;
+            case SV1_ -> nextPoint >= survivor2Pointer;
+            case SV2_ -> nextPoint >= oldPointer;
+            default -> nextPoint >= capacity;
+        };
     }
 
     /**
@@ -274,7 +269,6 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
      * @param generation 目标代
      * @return pointer
      */
-    @Nullable
     private Integer findInFreedMemory(int size, String generation) {
         /** 复用已回收的空间  遵循 fast one 弹出头部 检查大小是否能复用 能? 切成 2块 一块是已使用 一块是未使用 ,不能迭代下一个 **/
         DoublySkipList<Integer> freeMemOfGeneration = freedMemoryMaps.get(generation);
@@ -357,9 +351,9 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
                 skipListOfGeneration.delete(newNode.getKey()); // 删除原始节点
                 skipListOfGeneration.insert(mergeStart, mergeSize); // 插入合并后的节点
                 oldSize += (mergeSize - newNode.getValue());
-                System.out.println("marge successful  mergeStart: " + mergeStart + ", mergeSize : " + mergeSize);
+                System.out.println("Marge successful  mergeStart: " + mergeStart + ", mergeSize : " + mergeSize);
             } else {
-                oldSize -= size;
+                if (oldSize >= size) oldSize -= size;
             }
             freedMemorySizeMap.put(generation, oldSize);
         }
@@ -369,8 +363,7 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
         if (null == o) return;
 
         byte[] objectBytes;
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); ObjectOutputStream oos = new ObjectOutputStream(baos)) {
             oos.writeObject(o);
             oos.flush();
             objectBytes = baos.toByteArray();
@@ -378,6 +371,10 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
 
         int size = objectBytes.length;
         int allocatePoint = allocate(size, generation);
+        if (o instanceof SimulatedObj so) {
+            so.setPointer(allocatePoint);
+            so.setSize(size);
+        }
 
         Arrays.fill(heapMemory, allocatePoint, allocatePoint + size, (byte) 0);
         System.arraycopy(objectBytes, 0, heapMemory, allocatePoint, size);
@@ -469,7 +466,6 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
         System.arraycopy(heapMemory, srcPoint, heapMemory, desPoint, size);
         //
         free(srcPoint, size);
-
         System.out.println("Moved " + size + " bytes from " + srcPoint + " to " + desPoint);
     }
 

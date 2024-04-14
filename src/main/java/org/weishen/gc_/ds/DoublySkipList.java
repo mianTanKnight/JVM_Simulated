@@ -1,12 +1,10 @@
-package org.weishen.gc_.ds_;
+package org.weishen.gc_.ds;
 
-import javax.swing.plaf.PanelUI;
 import java.util.Random;
 
 public class DoublySkipList<T> {
 
-
-   public static class SkipListNode<T> {
+    public static class SkipListNode<T> {
         int key;
         T value;
         //后索引块
@@ -22,22 +20,22 @@ public class DoublySkipList<T> {
             this.backward = new SkipListNode[level + 1];
         }
 
-       public SkipListNode<T> getForward() {
-           return forward[0];
-       }
+        public SkipListNode<T> getForward() {
+            return forward[0];
+        }
 
-       public SkipListNode<T> getBackward() {
-           return backward[0] ;
-       }
+        public SkipListNode<T> getBackward() {
+            return backward[0];
+        }
 
-       public int getKey() {
-           return key;
-       }
+        public int getKey() {
+            return key;
+        }
 
-       public T getValue() {
-           return value;
-       }
-   }
+        public T getValue() {
+            return value;
+        }
+    }
 
     private static final double P = 0.5; //百分之50 的晋升率
     private static final int MAX_LEVEL = 16; //控制层数
@@ -46,7 +44,7 @@ public class DoublySkipList<T> {
     private int level;
     private final Random random;
 
-    public SkipListNode<T> getHeader(){
+    public SkipListNode<T> getHeader() {
         return header;
     }
 
@@ -88,7 +86,7 @@ public class DoublySkipList<T> {
             update[i] = current;
         }
         current = current.forward[0];
-        SkipListNode<T> newNode = null ;
+        SkipListNode<T> newNode = null;
         if (current == null || current.key != key) {
             int lvl = randomLevel();
             if (lvl > level) {
@@ -98,7 +96,7 @@ public class DoublySkipList<T> {
                 level = lvl;
             }
 
-             newNode = new SkipListNode<>(key, value, lvl);
+            newNode = new SkipListNode<>(key, value, lvl);
             for (int i = 0; i <= lvl; i++) {
                 newNode.forward[i] = update[i].forward[i];
                 update[i].forward[i] = newNode;
@@ -136,41 +134,5 @@ public class DoublySkipList<T> {
                 level--;
             }
         }
-    }
-
-    public static void main(String[] args) {
-        DoublySkipList<Integer> list = new DoublySkipList<>();
-
-        // 插入大量元素
-        for (int i = 0; i < 100000; i++) {
-            list.insert(i, i + 1000);
-        }
-
-        // 搜索并验证元素
-        boolean valid = true;
-        for (int i = 0; i < 100000; i++) {
-            SkipListNode<Integer> node = list.search(i);
-            if (node == null || node.value != i + 1000) {
-                valid = false;
-                break;
-            }
-        }
-        System.out.println("SkipList is " + (valid ? "valid" : "invalid"));
-
-        SkipListNode<Integer> search = list.search(500);
-        // 取出500 的前节点 是499
-        SkipListNode<Integer> integerSkipListNode = search.backward[0];
-        System.out.println(integerSkipListNode.key);
-        // 删掉499
-        list.delete(499);
-        SkipListNode<Integer> xg = search.backward[0];
-        // 输出 498 正确
-        System.out.println(xg.key);
-        // 再插入499
-        list.insert(499,null);
-        SkipListNode<Integer> fg = search.backward[0];
-        //输出499正确›
-        System.out.println(fg.key);
-
     }
 }

@@ -1,4 +1,4 @@
-package org.weishen.gc_.ds_;
+package org.weishen.gc_.ds;
 
 
 import java.util.Random;
@@ -84,18 +84,6 @@ public class SkipList<T> {
             System.out.println("null");
         }
     }
-
-//    private void printForwardPointers(SkipListNode<T> node, int level) {
-//        for (int i = level; i >= 0; i--) {
-//            if (node.forward[i] != null) {
-//                System.out.print(node.forward[i].key + " ");
-//            } else {
-//                System.out.print("null ");
-//            }
-//        }
-//        System.out.print("| ");
-//    }
-
 
 
 }
