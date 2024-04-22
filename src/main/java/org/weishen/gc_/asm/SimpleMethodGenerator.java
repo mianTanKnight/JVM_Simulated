@@ -3,6 +3,7 @@ package org.weishen.gc_.asm;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.weishen.gc_.asm.inter.MethodGenerator;
 
 import java.util.HashSet;
 import java.util.Set;

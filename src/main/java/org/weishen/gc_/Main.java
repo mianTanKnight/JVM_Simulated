@@ -4,30 +4,52 @@ package org.weishen.gc_;
 import org.weishen.gc_.context.AppContext;
 import org.weishen.gc_.ds.DoublySkipList;
 import org.weishen.gc_.heap.JVMArrayGenerationHeap;
-import org.weishen.gc_.obj_.SimpleGcObj;
-import org.weishen.gc_.obj_.SimulatedObj;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class Main {
 
     public static void main(String[] args) {
-        List<SimpleGcObj> list = new ArrayList<>();
-        for (int i = 0; i < 100; i++) {
-            SimpleGcObj simpleGcObj = AppContext.new_(SimpleGcObj.class, "A" + i);
-            SimulatedObj so = (SimulatedObj) simpleGcObj;
-            System.out.println("指针头 :" + so.getPointer());
-            System.out.println("size :" + so.getSize());
-            System.out.println("是否GcRoot : " + so.getIsRoot());
-            System.out.println(simpleGcObj);
-            list.add(simpleGcObj);
-        }
-        for (SimpleGcObj simpleGcObj : list) {
-            simpleGcObj.free();
-        }
     }
+
+
+//      public static void testAsm(){
+          //        testGC();
+//        List<SimpleGcObj> list = new ArrayList<>();
+//        for (int i = 0; i < 2; i++) {
+//            SimpleGcObj simpleGcObj = AppContext.new_(SimpleGcObj.class, "A" + i);
+//            SimulatedObj so = (SimulatedObj) simpleGcObj;
+//            System.out.println("指针头 :" + so.getPointer());
+//            System.out.println("size :" + so.getSize());
+//            System.out.println("是否GcRoot : " + so.getIsRoot());
+//            System.out.println(simpleGcObj);
+//            list.add(simpleGcObj);
+//        }
+//        for (SimpleGcObj simpleGcObj : list) {
+//            simpleGcObj.free();
+//        }
+          /**
+           * 测试结果:
+           * className : org/weishen/gc_/obj_/SimpleGcObjAgent for Obj !
+           * className : org/weishen/gc_/obj_/SimulatedObjAgent for Obj !
+           * Eden Size: 546.13 MB
+           * Survivor1 Size: 68.27 MB
+           * Survivor2 Size: 68.27 MB
+           * Old Size: 1365.33 MB
+           * 指针头 :0
+           * size :217
+           * 是否GcRoot : false
+           * Node A0
+           * 指针头 :224
+           * size :217
+           * 是否GcRoot : false
+           * Node A1
+           * Freeing memory at pointer: 0, size: 217
+           * Freeing memory at pointer: 224, size: 217
+           */
+//      }
+
+
 
 
     public static void testMem() throws Exception {

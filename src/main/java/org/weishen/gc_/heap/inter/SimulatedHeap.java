@@ -1,5 +1,5 @@
 
-package org.weishen.gc_.heap;
+package org.weishen.gc_.heap.inter;
 
 
 import java.io.IOException;

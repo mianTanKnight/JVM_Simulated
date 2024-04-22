@@ -1,4 +1,4 @@
-package org.weishen.gc_.asm;
+package org.weishen.gc_.asm.inter;
 
 import org.objectweb.asm.ClassVisitor;
 

@@ -1,11 +1,12 @@
 package org.weishen.gc_.context;
 
-import org.weishen.gc_.gcm.SimulatedGC;
+import org.weishen.gc_.gcm.GCGraph;
+import org.weishen.gc_.gcm.ThreeColourNode;
 import org.weishen.gc_.heap.JVMArrayGenerationHeap;
-import org.weishen.gc_.heap.SimulatedHeap;
+import org.weishen.gc_.heap.inter.SimulatedHeap;
+import org.weishen.gc_.obj_.inter.SimulatedObj;
 
 import java.lang.reflect.Constructor;
-import java.util.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -31,27 +32,29 @@ public class AppContext {
      */
     private final ReentrantReadWriteLock stwLockOfApp = new ReentrantReadWriteLock();
 
+    private final GCGraph gcGraph = new GCGraph();
+
     // 模拟的堆，负责底层的内存分配和管理。
     private final SimulatedHeap simulatedHeap;
 
-    // 可能有多个垃圾收集策略，这里通过列表管理。
-    private final List<SimulatedGC> gcs;
-
     // 私有构造方法
-    private AppContext(SimulatedHeap simulatedHeap, List<SimulatedGC> gcs) {
+    private AppContext(SimulatedHeap simulatedHeap) {
         this.simulatedHeap = simulatedHeap;
-        this.gcs = gcs;
     }
 
     // 静态内部类实现单例模式
     private static class SingletonHolder {
         // 在SingletonHolder被加载时，单例会被初始化
-        private static final AppContext INSTANCE = new AppContext(new JVMArrayGenerationHeap(Integer.MAX_VALUE), null);
+        private static final AppContext INSTANCE = new AppContext(new JVMArrayGenerationHeap(Integer.MAX_VALUE));
     }
 
     // 公有静态方法，提供全局访问点
     public static AppContext getInstance() {
         return SingletonHolder.INSTANCE;
+    }
+
+    public static GCGraph getGCGraph() {
+        return SingletonHolder.INSTANCE.gcGraph;
     }
 
     public SimulatedHeap getSimulatedHeap() {
@@ -79,10 +82,13 @@ public class AppContext {
             }
             // 获取匹配的构造函数
             Constructor<T> constructor = clazz.getConstructor(parameterTypes);
-            // 创建实例
+            //  创建实例
             instance = constructor.newInstance(constructorArgs);
             if (hp instanceof JVMArrayGenerationHeap h) {
                 h.memSet(instance, JVMArrayGenerationHeap.EDEN_);
+            }
+            if (instance instanceof SimulatedObj so) {
+                getGCGraph().register(new ThreeColourNode(clazz.getName(), so));
             }
 
         } catch (Throwable e) {
@@ -90,6 +96,7 @@ public class AppContext {
         }
         return instance;
     }
+
     /**
      * 查找与提供的参数匹配的构造函数。
      *

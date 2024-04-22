@@ -31,7 +31,6 @@ public class SimulatedAgent implements ClassFileTransformer {
         //
         if (null != AGENT_OBJ_PATH && className.startsWith(AGENT_OBJ_PATH)) {
             try {
-                System.out.println("className : " + className  + "Agent for Obj !");
                 return NewEhASM.enhanceClass(classfileBuffer);
             } catch (Exception e) {
                 throw new RuntimeException(e);

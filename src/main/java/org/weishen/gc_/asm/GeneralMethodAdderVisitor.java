@@ -1,6 +1,8 @@
 package org.weishen.gc_.asm;
 
 import org.objectweb.asm.ClassVisitor;
+import org.weishen.gc_.asm.inter.MethodGenerator;
+
 import java.util.List;
 import java.util.function.Consumer;
 

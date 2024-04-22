@@ -4,6 +4,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
+import org.weishen.gc_.asm.inter.MethodGenerator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,9 +32,7 @@ public class NewEhASM {
          */
         boolean isInterface = (access & Opcodes.ACC_INTERFACE) != 0;
         boolean isAbstract = (access & Opcodes.ACC_ABSTRACT) != 0;
-
         if (isInterface || isAbstract) return classBytes;
-
         /**
          * int: "I"
          * boolean: "Z"

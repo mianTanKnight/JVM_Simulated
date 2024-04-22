@@ -1,7 +1,9 @@
 package org.weishen.gc_.heap;
 
 import org.weishen.gc_.ds.DoublySkipList;
-import org.weishen.gc_.obj_.SimulatedObj;
+import org.weishen.gc_.heap.inter.Generation;
+import org.weishen.gc_.heap.inter.SimulatedHeap;
+import org.weishen.gc_.obj_.inter.SimulatedObj;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

@@ -1,4 +1,4 @@
-package org.weishen.gc_.obj_;
+package org.weishen.gc_.obj_.inter;
 
 
 /**
