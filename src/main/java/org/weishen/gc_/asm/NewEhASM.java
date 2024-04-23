@@ -50,7 +50,7 @@ public class NewEhASM {
         //isRoot bool
         ClassVisitor isRoot = new AddFieldClassVisitor(Opcodes.ASM9, pointer, "isRoot", Opcodes.ACC_PUBLIC, "Z", null);
         //interface Serializable
-        EnhancedClassVisitor addInterfaces = new EnhancedClassVisitor(Opcodes.ASM9, isRoot, "size", Opcodes.ACC_PUBLIC, "I", null, "java/io/Serializable", "org/weishen/gc_/obj_/SimulatedObj");
+        EnhancedClassVisitor addInterfaces = new EnhancedClassVisitor(Opcodes.ASM9, isRoot, "size", Opcodes.ACC_PUBLIC, "I", null, "java/io/Serializable", "org/weishen/gc_/obj_/inter/SimulatedObj");
         List<Consumer<MethodGenerator>> consumers = new ArrayList<>(6);
         consumers.add((x) -> {
             x.addGetter(cw, "size", "I");

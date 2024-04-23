@@ -310,7 +310,6 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
     public void free(int point, int size) throws Exception {
         // 确保释放的内存地址是有效的，即必须是正数且为8的倍数
         assert point > 0 && (point & 7) == 0;
-        System.out.println("Freeing memory at pointer: " + point + ", size: " + size);
         // 根据内存地址确定它属于哪一个内存分区（代）
         String generation = getGeneration(point);
 
@@ -355,7 +354,7 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
                 oldSize += (mergeSize - newNode.getValue());
                 System.out.println("Marge successful  mergeStart: " + mergeStart + ", mergeSize : " + mergeSize);
             } else {
-                if (oldSize >= size) oldSize -= size;
+                oldSize += size;
             }
             freedMemorySizeMap.put(generation, oldSize);
         }
@@ -468,7 +467,6 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
         System.arraycopy(heapMemory, srcPoint, heapMemory, desPoint, size);
         //
         free(srcPoint, size);
-        System.out.println("Moved " + size + " bytes from " + srcPoint + " to " + desPoint);
     }
 
     @Override

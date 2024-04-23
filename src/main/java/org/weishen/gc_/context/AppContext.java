@@ -1,6 +1,6 @@
 package org.weishen.gc_.context;
 
-import org.weishen.gc_.gcm.GCGraph;
+import org.weishen.gc_.gcm.ThreeColourSerialUnSafeGraph;
 import org.weishen.gc_.gcm.ThreeColourNode;
 import org.weishen.gc_.heap.JVMArrayGenerationHeap;
 import org.weishen.gc_.heap.inter.SimulatedHeap;
@@ -9,6 +9,7 @@ import org.weishen.gc_.obj_.inter.SimulatedObj;
 import java.lang.reflect.Constructor;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.logging.Logger;
 
 /**
  * AppContext 类是整个模拟环境的中心枢纽，负责协调内存管理和垃圾收集（GC）的整体工作流程。
@@ -25,6 +26,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class AppContext {
 
+    private static final Logger logger = Logger.getLogger(AppContext.class.getName());
+
     /**
      * 支持Stop-The-World (STW) 的全局应用锁。
      * 用于模拟GC事件触发时，整个应用暂停的行为，确保在GC执行期间内存状态的一致性。
@@ -32,7 +35,7 @@ public class AppContext {
      */
     private final ReentrantReadWriteLock stwLockOfApp = new ReentrantReadWriteLock();
 
-    private final GCGraph gcGraph = new GCGraph();
+    private final ThreeColourSerialUnSafeGraph gcGraph = new ThreeColourSerialUnSafeGraph();
 
     // 模拟的堆，负责底层的内存分配和管理。
     private final SimulatedHeap simulatedHeap;
@@ -48,17 +51,24 @@ public class AppContext {
         private static final AppContext INSTANCE = new AppContext(new JVMArrayGenerationHeap(Integer.MAX_VALUE));
     }
 
+    public static void gc() {
+        logger.info("GC Before : " + getSimulatedHeap().getHeapDetails());
+        getGCGraph().gc();
+        logger.info("GC Later : " + getSimulatedHeap().getHeapDetails());
+    }
+
     // 公有静态方法，提供全局访问点
     public static AppContext getInstance() {
         return SingletonHolder.INSTANCE;
     }
 
-    public static GCGraph getGCGraph() {
+    public static ThreeColourSerialUnSafeGraph getGCGraph() {
         return SingletonHolder.INSTANCE.gcGraph;
     }
 
-    public SimulatedHeap getSimulatedHeap() {
-        return simulatedHeap;
+
+    public static SimulatedHeap getSimulatedHeap() {
+        return SingletonHolder.INSTANCE.simulatedHeap;
     }
 
     public Lock getAppReadLock() {
@@ -71,7 +81,16 @@ public class AppContext {
         return this.stwLockOfApp.writeLock();
     }
 
+
     public static <T> T new_(Class<T> clazz, Object... constructorArgs) {
+        return new_(clazz, false, constructorArgs);
+    }
+
+    public static <T> T newRoot_(Class<T> clazz, Object... constructorArgs) {
+        return new_(clazz, true, constructorArgs);
+    }
+
+    private static <T> T new_(Class<T> clazz, boolean isRoot, Object... constructorArgs) {
         T instance;
         SimulatedHeap hp = getInstance().simulatedHeap;
         try {
@@ -88,6 +107,7 @@ public class AppContext {
                 h.memSet(instance, JVMArrayGenerationHeap.EDEN_);
             }
             if (instance instanceof SimulatedObj so) {
+                so.setIsRoot(isRoot);
                 getGCGraph().register(new ThreeColourNode(clazz.getName(), so));
             }
 

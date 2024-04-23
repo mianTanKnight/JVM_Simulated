@@ -6,24 +6,29 @@ import org.weishen.gc_.gcm.inter.ReferenceGC;
 import org.weishen.gc_.gcm.inter.Mark;
 import org.weishen.gc_.obj_.inter.SimulatedObj;
 
+import java.util.logging.Logger;
+
 import java.util.*;
 
 /**
- * 实现三色标记算法的节点类。该类管理一个模拟对象及其引用，并根据GC的三色标记算法进行标记和清除。
- * <p>
- * Attributes:
- * - references: 存储当前节点引用的其他节点集合。
- * - color: 表示节点的当前颜色，用于三色标记算法中的标记过程。
- * - id: 节点的唯一标识符，通常结合模拟对象的指针地址使用。
- * - simulatedObj: 与此节点关联的模拟对象，代表实际的数据或对象。
- * <p>
- * Methods:
- * - mark: 根据三色标记算法将节点及其引用的节点标记为到达。
- * - clear: 清除所有未标记（白色）的引用节点，并最终清理自身。
- * - freeMemory: 释放与该节点关联的模拟对象占用的内存。
+ * ThreeColourSerialUnSafeGraph 类实现了SimulatedGC接口，提供了基于三色标记算法的垃圾回收机制。
+ *
+ * 这个类的实现是串行的，即在单个线程中执行，因此被标记为"UnSafe"，意味着在并发环境下它不提供线程安全保障，
+ *
+ * 使用时需要外部同步控制或保证其只在单线程环境中运行。
+ *
+ * 特性：
+ * - roots: 存储所有被认为是GC Roots的节点，这些节点通常是全局可访问的或者由栈直接引用的对象。
+ * - nodesMap: 存储所有节点，包括它们的标识和引用关系。
+ *
+ * 主要方法：
+ * - mark(): 实现三色标记过程，逐个访问并标记从根节点可达的所有节点。
+ * - sweep(): 执行清扫阶段，移除所有未被标记的节点，并重置已处理节点的状态。
+ * - register(): 注册新的节点到GC图中。
+ * - disconnect(): 断开选定根节点的引用，通常在该对象不再需要时调用。
  */
 public class ThreeColourNode implements Mark, Clear, ReferenceGC {
-
+    private static final Logger logger = Logger.getLogger(ThreeColourNode.class.getName());
     private final Set<ReferenceGC> references = new HashSet<>();
     private Color color = Color.WHITE;  // 默认所有节点初始为白色
     private final String id; // 节点标识符
@@ -33,7 +38,11 @@ public class ThreeColourNode implements Mark, Clear, ReferenceGC {
         assert null != simulatedObj && null != id;
         this.simulatedObj = simulatedObj;
         //如果没制定就使用指针
-        this.id = "MarkNode : id" + id + ", pointer :" + simulatedObj.getPointer();
+        this.id = String.valueOf(simulatedObj.getPointer());
+    }
+
+    public String getId() {
+        return id;
     }
 
     public void setColor(Color color) {
@@ -47,6 +56,7 @@ public class ThreeColourNode implements Mark, Clear, ReferenceGC {
     @Override
     public void mark(Queue<Mark> workQueue) {
         //每个节点都只负责自己的向量
+        logger.info("Marking node: " + id + " | Current color: " + color);
         if (this.color == Color.WHITE) {
             this.color = Color.GREY;  // 标记为灰色，表示待处理
             for (ReferenceGC ref : references) {
@@ -56,6 +66,7 @@ public class ThreeColourNode implements Mark, Clear, ReferenceGC {
                 }
             }
             this.color = Color.BLACK; // 处理完所有引用后，标记为黑色
+            logger.info("Node marked BLACK: " + id);
         }
     }
 
@@ -82,6 +93,7 @@ public class ThreeColourNode implements Mark, Clear, ReferenceGC {
 
     @Override
     public void clear() {
+        logger.info("Clearing node: " + id);
         Iterator<ReferenceGC> iterator = references.iterator();
         while (iterator.hasNext()) {
             ReferenceGC node = iterator.next();
@@ -98,10 +110,14 @@ public class ThreeColourNode implements Mark, Clear, ReferenceGC {
 
     public void freeMemory() {
         try {
+            logger.info("Freeing memory for node: " + id);
             SimulatedObj source = getSource();
-            if (null != source)
-                AppContext.getInstance().getSimulatedHeap().free(source.getPointer(), source.getSize());
+            if (null != source) {
+                AppContext.getSimulatedHeap().free(source.getPointer(), source.getSize());
+                logger.info("Memory freed for node: " + id);
+            }
         } catch (Exception e) {
+            logger.severe("Error freeing memory for node: " + id + " | Error: " + e.getMessage());
             throw new RuntimeException(e);
         }
     }
