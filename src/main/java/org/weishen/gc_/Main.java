@@ -3,6 +3,7 @@ package org.weishen.gc_;
 import org.weishen.gc_.context.AppContext;
 import org.weishen.gc_.gcm.ThreeColourSerialUnSafeGraph;
 import org.weishen.gc_.obj_.Order;
+import org.weishen.gc_.obj_.inter.SimulatedObj;
 
 public class Main {
 
@@ -22,18 +23,31 @@ public class Main {
          * 所以我们知道 o2由两个GCroot持有连接
          */
         Order order = AppContext.newRoot_(Order.class, "N50", "Zhangsan");
+        if (order instanceof SimulatedObj so) {
+            System.out.println(so.toStringS());
+        }
         Order order3 = AppContext.newRoot_(Order.class, "N70", "K");
-        Order order1 = AppContext.new_(Order.class,"N51", "Lis");
+        if (order3 instanceof SimulatedObj s1) {
+            System.out.println(s1.toStringS());
+        }
+        Order order1 = AppContext.new_(Order.class, "N51", "Lis");
+        if (order1 instanceof SimulatedObj s2) {
+            System.out.println(s2.toStringS());
+        }
         Order order2 = AppContext.new_(Order.class, "N52", "Ww");
 
+        if (order2 instanceof SimulatedObj s3) {
+            System.out.println(s3.toStringS());
+        }
+
         //构建GC关系
-        gcGraph.register(order,order1);
-        gcGraph.register(order1,order2);
-        gcGraph.register(order3,order2);
+        gcGraph.register(order, order1);
+        gcGraph.register(order1, order2);
+        gcGraph.register(order3, order2);
 
         //GCroot断开
-        gcGraph.disconnect(order);
-
+        gcGraph.disconnectAndRecycle(order);
+        gcGraph.disconnectAndRecycle(order3);
         /**
          * 结果应该是o1被回收 o2不会被回收
          */
@@ -41,11 +55,9 @@ public class Main {
 
     }
 
-
-
-
-
-
+    private static int alignSize(int size) {
+        return (size + 7) & ~7;
+    }
 
 
 //    public static void testMem() throws Exception {

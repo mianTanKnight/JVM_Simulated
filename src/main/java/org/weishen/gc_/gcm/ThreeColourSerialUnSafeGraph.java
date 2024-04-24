@@ -30,6 +30,7 @@ public class ThreeColourSerialUnSafeGraph implements SimulatedGC<ThreeColourNode
     private static final Logger logger = Logger.getLogger(ThreeColourSerialUnSafeGraph.class.getName());
     private final List<ThreeColourNode> roots = new ArrayList<>();
     private final Map<SimulatedObj, ThreeColourNode> nodesMap = new HashMap<>();
+    private final List<ThreeColourNode> shortActingRoots = new ArrayList<>();
 
     /**
      * 标记作业
@@ -51,22 +52,61 @@ public class ThreeColourSerialUnSafeGraph implements SimulatedGC<ThreeColourNode
         sweep();
     }
 
+    /**
+     * nodesMap是储存 getSource()的包装
+     * x[source]
+     * if  x.color != white 那它一定存在引用
+     * else 它可能存在引用或引用已被清楚 因为是此引用可能是别人的子序元素 它可能被联级"提前清扫"
+     * 但不管怎么样 color == white  就会被移除
+     */
     private void sweep() {
         logger.info("Starting sweep phase.");
         Iterator<ThreeColourNode> it = nodesMap.values().iterator();
         while (it.hasNext()) {
             ThreeColourNode node = it.next();
             if (node.getColor() == ThreeColourNode.Color.WHITE) {
-                node.clear();
-                logger.info("Node swept: " + node.getId());
+                if (node.getSource() != null) {
+                    node.clear();
+                    logger.info("Node swept: " + node.getId());
+                }
                 it.remove();
             } else {
                 node.setColor(ThreeColourNode.Color.WHITE);
             }
         }
+        for (ThreeColourNode shortActingRoot : shortActingRoots) {
+            shortActingRoot.clear();
+        }
+        shortActingRoots.clear();
         logger.info("Sweep phase completed.");
     }
 
+    /**
+     * 短效的GCroot 在断开引用之后并回收
+     * 但注意回收动作由sweep()负责 的这里只负责"准备工作"
+     * @param root 要断开引用的根对象
+     */
+    @Override
+    public void disconnectAndRecycle(Object root) {
+        if (root instanceof SimulatedObj so && so.getIsRoot()) {
+            ThreeColourNode rootNode = nodesMap.get(so);
+            if (rootNode != null) {
+                rootNode.getReference().clear();
+                roots.remove(rootNode);
+                nodesMap.remove(root);
+                shortActingRoots.add(rootNode);
+            }
+        }
+    }
+
+    @Override
+    public void disconnect(Object root) {
+        if (root instanceof SimulatedObj so && so.getIsRoot()) {
+            ThreeColourNode rootNode = nodesMap.get(so);
+            if (rootNode != null)
+                rootNode.getReference().clear();
+        }
+    }
     @Override
     public void register(ThreeColourNode obj) {
         nodesMap.putIfAbsent(obj.getSource(), obj);
@@ -94,21 +134,13 @@ public class ThreeColourSerialUnSafeGraph implements SimulatedGC<ThreeColourNode
     }
 
     @Override
-    public void disconnect(Object root) {
-        if (root instanceof SimulatedObj so && so.getIsRoot()) {
-            ThreeColourNode rootNode = nodesMap.get(so);
-            if (rootNode != null)
-                rootNode.getReference().clear();
-        }
-    }
-
-    @Override
     public List<ThreeColourNode> getRootObjs() {
         return roots;
     }
 
     @Override
     public long safeTime() {
+        // no impl
         return 0;
     }
 

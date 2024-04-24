@@ -11,7 +11,7 @@ import java.util.Set;
 public class SimpleMethodGenerator implements MethodGenerator {
 
     private String ownerClass;
-    private Set<String> existingMethods = new HashSet<>();
+    private final Set<String> existingMethods = new HashSet<>();
 
     public SimpleMethodGenerator() {
     }
@@ -48,6 +48,50 @@ public class SimpleMethodGenerator implements MethodGenerator {
             mv.visitEnd();
         }
     }
+    public void toString(ClassVisitor cv, String name, String type) {
+        MethodVisitor mv = cv.visitMethod(Opcodes.ACC_PUBLIC, name, "()Ljava/lang/String;", null, null);
+        mv.visitCode();
+        mv.visitLdcInsn("SimulatedObj[Pointer=%d, Size=%d, AligningSize=%d, IsRoot=%s]");
+
+        mv.visitInsn(Opcodes.ICONST_4);
+        mv.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/Object");
+
+        loadAndBox(mv, 0, "pointer", "I");
+        loadAndBox(mv, 1, "size", "I");
+        loadAndBox(mv, 2, "aligningSize", "I");
+        loadAndBox(mv, 3, "isRoot", "Z");
+
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/String", "format", "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;", false);
+        mv.visitInsn(Opcodes.ARETURN);
+        mv.visitMaxs(6, 1);
+        mv.visitEnd();
+    }
+
+    private void loadAndBox(MethodVisitor mv, int index, String fieldName, String fieldType) {
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitIntInsn(Opcodes.BIPUSH, index);
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitFieldInsn(Opcodes.GETFIELD, ownerClass, fieldName, fieldType);
+        autoBox(mv, fieldType);
+        mv.visitInsn(Opcodes.AASTORE);
+    }
+
+    private void autoBox(MethodVisitor mv, String fieldType) {
+        switch(fieldType) {
+            case "I":
+                mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;", false);
+                break;
+            case "Z":
+                mv.visitMethodInsn(Opcodes.INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Z)Ljava/lang/Boolean;", false);
+                break;
+            default:
+                // handle other types if necessary
+                break;
+        }
+    }
+
+
+
     private int getReturnOpcode(String type) {
         return switch (type) {
             case "I", "Z", "B", "C", "S" -> Opcodes.IRETURN;

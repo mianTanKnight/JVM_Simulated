@@ -6,6 +6,8 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
 import org.weishen.gc_.asm.inter.MethodGenerator;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -25,7 +27,7 @@ public class NewEhASM {
 
     public static byte[] enhanceClass(byte[] classBytes) throws Exception {
         ClassReader cr = new ClassReader(classBytes);
-        ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS);
+        ClassWriter cw = new ClassWriter(cr,ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         int access = cr.getAccess();
         /**
          * 接口和抽象类不处理
@@ -45,32 +47,54 @@ public class NewEhASM {
          */
         //size int
         ClassVisitor size = new AddFieldClassVisitor(Opcodes.ASM9, cw, "size", Opcodes.ACC_PUBLIC, "I", null);
+
+        ClassVisitor aligningSize = new AddFieldClassVisitor(Opcodes.ASM9, size, "aligningSize", Opcodes.ACC_PUBLIC, "I", null);
         //pointer int
-        ClassVisitor pointer = new AddFieldClassVisitor(Opcodes.ASM9, size, "pointer", Opcodes.ACC_PUBLIC, "I", null);
+        ClassVisitor pointer = new AddFieldClassVisitor(Opcodes.ASM9, aligningSize, "pointer", Opcodes.ACC_PUBLIC, "I", null);
         //isRoot bool
         ClassVisitor isRoot = new AddFieldClassVisitor(Opcodes.ASM9, pointer, "isRoot", Opcodes.ACC_PUBLIC, "Z", null);
         //interface Serializable
         EnhancedClassVisitor addInterfaces = new EnhancedClassVisitor(Opcodes.ASM9, isRoot, "size", Opcodes.ACC_PUBLIC, "I", null, "java/io/Serializable", "org/weishen/gc_/obj_/inter/SimulatedObj");
-        List<Consumer<MethodGenerator>> consumers = new ArrayList<>(6);
-        consumers.add((x) -> {
+
+        // get/set
+        List<Consumer<MethodGenerator>> getSetConsumers = new ArrayList<>(6);
+        getSetConsumers.add((x) -> {
             x.addGetter(cw, "size", "I");
         });
-        consumers.add((x) -> {
-            x.addGetter(cw, "pointer", "I");
-        });
-        consumers.add((x) -> {
-            x.addGetter(cw, "isRoot", "Z");
-        });
-        consumers.add((x) -> {
+        getSetConsumers.add((x) -> {
             x.addSetter(cw, "size", "I");
         });
-        consumers.add((x) -> {
+        getSetConsumers.add((x) -> {
+            x.addGetter(cw, "aligningSize", "I");
+        });
+        getSetConsumers.add((x) -> {
+            x.addSetter(cw, "aligningSize", "I");
+        });
+        getSetConsumers.add((x) -> {
+            x.addGetter(cw, "pointer", "I");
+        });
+        getSetConsumers.add((x) -> {
             x.addSetter(cw, "pointer", "I");
         });
-        consumers.add((x) -> {
+        getSetConsumers.add((x) -> {
+            x.addGetter(cw, "isRoot", "Z");
+        });
+        getSetConsumers.add((x) -> {
             x.addSetter(cw, "isRoot", "Z");
         });
-        GeneralMethodAdderVisitor generalMethodAdderVisitor = new GeneralMethodAdderVisitor(Opcodes.ASM9, addInterfaces, consumers, MethodGenerator.METHOD_SIMPLE_GET_SET);
+
+        List<Consumer<MethodGenerator>> toStringConsumers = new ArrayList<>(1);
+
+        toStringConsumers.add((x)->{
+            x.toString(cw,MethodGenerator.METHOD_TO_STRING,null);
+        });
+
+
+        GeneralMethodAdderVisitor generalMethodAdderVisitor = new GeneralMethodAdderVisitor(Opcodes.ASM9, addInterfaces
+                ,new GeneralMethodAdderVisitor.MethodsAndType(getSetConsumers,MethodGenerator.METHOD_SIMPLE_GET_SET)
+                ,new GeneralMethodAdderVisitor.MethodsAndType(toStringConsumers,MethodGenerator.METHOD_TO_STRING)
+        );
+
         cr.accept(generalMethodAdderVisitor, 0);
 
         return cw.toByteArray();

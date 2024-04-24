@@ -24,9 +24,15 @@ import java.util.logging.Logger;
  * 使得内存管理（Heap）专注于内存空间的分配和回收，而垃圾收集逻辑可以根据应用层的需求灵活触发，
  * 提高了系统设计的灵活性和可维护性。
  */
-public class AppContext {
+public final class AppContext {
 
     private static final Logger logger = Logger.getLogger(AppContext.class.getName());
+
+    // 静态内部类实现单例模式
+    private static class SingletonHolder {
+        // 在SingletonHolder被加载时，单例会被初始化
+        private static final AppContext INSTANCE = new AppContext(new JVMArrayGenerationHeap(Integer.MAX_VALUE));
+    }
 
     /**
      * 支持Stop-The-World (STW) 的全局应用锁。
@@ -43,12 +49,6 @@ public class AppContext {
     // 私有构造方法
     private AppContext(SimulatedHeap simulatedHeap) {
         this.simulatedHeap = simulatedHeap;
-    }
-
-    // 静态内部类实现单例模式
-    private static class SingletonHolder {
-        // 在SingletonHolder被加载时，单例会被初始化
-        private static final AppContext INSTANCE = new AppContext(new JVMArrayGenerationHeap(Integer.MAX_VALUE));
     }
 
     public static void gc() {
@@ -72,12 +72,10 @@ public class AppContext {
     }
 
     public Lock getAppReadLock() {
-        System.out.println("获取了锁");
         return this.stwLockOfApp.readLock();
     }
 
     public Lock getAppWriterLock() {
-        System.out.println("释放了锁");
         return this.stwLockOfApp.writeLock();
     }
 
@@ -117,16 +115,4 @@ public class AppContext {
         return instance;
     }
 
-    /**
-     * 查找与提供的参数匹配的构造函数。
-     *
-     * @param clazz           要创建的对象类
-     * @param constructorArgs 构造函数的参数
-     * @return 匹配的构造函数
-     * @throws NoSuchMethodException 如果没有找到匹配的构造函数
-     */
-    private static <T> Constructor<T> findSuitableConstructor(Class<T> clazz, Object... constructorArgs) throws NoSuchMethodException {
-        // 实现略，基于constructorArgs查找合适的构造函数
-        return null;
-    }
 }

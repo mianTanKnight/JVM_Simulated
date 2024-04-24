@@ -218,14 +218,13 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
      * allocate 需要保证线程线程安全
      * 返回指定可写入的point(但没有写入,可以直接覆盖不用置0)
      *
-     * @param size       申请的大小
+     * @param normalizedSize       申请的大小
      * @param generation 指定的分代
      * @return 可写入的point
      * @throws OutOfMemoryError
      */
-    private int allocate(int size, String generation) throws OutOfMemoryError, Exception {
-        assert size > 0;
-        int normalizedSize = alignSize(size);
+    private int allocate(int normalizedSize, String generation) throws OutOfMemoryError, Exception {
+        assert normalizedSize > 0 && (normalizedSize & 7) == 0;
         Integer allocatePointer;
 
         synchronized (this.memLock) {
@@ -333,7 +332,6 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
                 mergeSize += prev.getValue(); // 累加合并后的大小
                 int sizePrev = prev.getKey();
                 skipListOfGeneration.delete(sizePrev); // 删除被合并的节点
-                oldSize -= sizePrev;
                 prev = prev.getBackward();
             }
 
@@ -341,9 +339,7 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
             DoublySkipList.SkipListNode<Integer> next = newNode.getForward();
             while (next != null && next.getValue() != null && next.getKey() == mergeStart + mergeSize) {
                 mergeSize += next.getValue(); // 累加合并后的大小
-                int sizeNext = next.getKey();
                 skipListOfGeneration.delete(next.getKey()); // 删除被合并的节点
-                oldSize -= sizeNext;
                 next = next.getForward();
             }
 
@@ -351,11 +347,10 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
             if (mergeStart != point || mergeSize != size) {
                 skipListOfGeneration.delete(newNode.getKey()); // 删除原始节点
                 skipListOfGeneration.insert(mergeStart, mergeSize); // 插入合并后的节点
-                oldSize += (mergeSize - newNode.getValue());
                 System.out.println("Marge successful  mergeStart: " + mergeStart + ", mergeSize : " + mergeSize);
-            } else {
-                oldSize += size;
             }
+            oldSize += size;
+
             freedMemorySizeMap.put(generation, oldSize);
         }
     }
@@ -370,15 +365,25 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
             objectBytes = baos.toByteArray();
         } // 使用try-with-resources自动关闭流
 
-        int size = objectBytes.length;
-        int allocatePoint = allocate(size, generation);
+        /**
+         * 每个对象都会有和对齐内存和真正内存
+         * real 和 aligning 内存
+         * 并且 aligning 一定大于 real 向上取对齐数
+         * 那么写入内存一定是以对齐内存写入
+         * 反序列号读取时间使用 point + realSize
+         *
+         */
+        int realSize = objectBytes.length;
+        int aligningSize = alignSize(realSize);
+        int allocatePoint = allocate(aligningSize, generation);
         if (o instanceof SimulatedObj so) {
             so.setPointer(allocatePoint);
-            so.setSize(size);
+            so.setSize(realSize);
+            so.setAligningSize(aligningSize);
         }
 
-        Arrays.fill(heapMemory, allocatePoint, allocatePoint + size, (byte) 0);
-        System.arraycopy(objectBytes, 0, heapMemory, allocatePoint, size);
+        Arrays.fill(heapMemory, allocatePoint, allocatePoint + aligningSize, (byte) 0);
+        System.arraycopy(objectBytes, 0, heapMemory, allocatePoint, realSize);
     }
 
     /**

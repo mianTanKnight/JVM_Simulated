@@ -12,18 +12,25 @@ public interface SimulatedObj {
 
     // public int pointer
     // public int size
+    // public int aligningSize;
     // public bool isRoot
 
     void setPointer(int pointer);
 
-    void setSize(int size);
-
     int getPointer();
 
+    void setSize(int size);
+
     int getSize();
+
+    void setAligningSize(int size);
+
+    int getAligningSize();
 
     void setIsRoot(boolean isRoot);
 
     boolean getIsRoot();
+
+    String toStringS();
 
 }

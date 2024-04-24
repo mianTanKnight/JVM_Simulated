@@ -1,6 +1,7 @@
 package org.weishen.gc_.asm;
 
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
 import org.weishen.gc_.asm.inter.MethodGenerator;
 
 import java.util.List;
@@ -9,16 +10,17 @@ import java.util.function.Consumer;
 public class GeneralMethodAdderVisitor extends ClassVisitor {
 
     private String className;
-
-    final List<Consumer<MethodGenerator>> consumers;
+    final List<MethodsAndType> methodsAndType;
 
     SimpleMethodGenerator simpleMethodGenerator;
 
-    public GeneralMethodAdderVisitor(int api, ClassVisitor cv, List<Consumer<MethodGenerator>> consumers, String methodType) {
+    public GeneralMethodAdderVisitor(int api, ClassVisitor cv, MethodsAndType... methodTypes) {
         super(api, cv);
-        this.consumers = consumers;
-        if (MethodGenerator.METHOD_SIMPLE_GET_SET.equals(methodType))
-            simpleMethodGenerator = new SimpleMethodGenerator();
+        methodsAndType = List.of(methodTypes);
+        for (MethodsAndType methodType : methodTypes) {
+            if (MethodGenerator.METHOD_SIMPLE_GET_SET.equals(methodType.getMethodType()) || MethodGenerator.METHOD_TO_STRING.equals(methodType.getMethodType()))
+                simpleMethodGenerator = new SimpleMethodGenerator();
+        }
     }
 
 
@@ -31,8 +33,34 @@ public class GeneralMethodAdderVisitor extends ClassVisitor {
 
     @Override
     public void visitEnd() {
-        if (null != simpleMethodGenerator && null != className && !className.isEmpty())
-            consumers.forEach(c -> c.accept(simpleMethodGenerator));
+        if (null != simpleMethodGenerator && null != className && !className.isEmpty()) {
+            for (MethodsAndType mt : methodsAndType) {
+                for (Consumer<MethodGenerator> consumer : mt.consumers) {
+                    consumer.accept(simpleMethodGenerator);
+                }
+            }
+        }
         super.visitEnd();
+    }
+
+    public static class MethodsAndType {
+        final List<Consumer<MethodGenerator>> consumers;
+
+        final String methodType;
+
+        MethodsAndType(List<Consumer<MethodGenerator>> consumers, String methodType) {
+            this.consumers = consumers;
+            this.methodType = methodType;
+        }
+
+        public List<Consumer<MethodGenerator>> getConsumers() {
+            return consumers;
+        }
+
+        public String getMethodType() {
+            return methodType;
+        }
+
+
     }
 }

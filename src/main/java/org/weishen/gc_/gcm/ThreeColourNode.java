@@ -12,27 +12,27 @@ import java.util.*;
 
 /**
  * ThreeColourSerialUnSafeGraph 类实现了SimulatedGC接口，提供了基于三色标记算法的垃圾回收机制。
- *
+ * <p>
  * 这个类的实现是串行的，即在单个线程中执行，因此被标记为"UnSafe"，意味着在并发环境下它不提供线程安全保障，
- *
+ * <p>
  * 使用时需要外部同步控制或保证其只在单线程环境中运行。
- *
+ * <p>
  * 特性：
  * - roots: 存储所有被认为是GC Roots的节点，这些节点通常是全局可访问的或者由栈直接引用的对象。
  * - nodesMap: 存储所有节点，包括它们的标识和引用关系。
- *
+ * <p>
  * 主要方法：
  * - mark(): 实现三色标记过程，逐个访问并标记从根节点可达的所有节点。
  * - sweep(): 执行清扫阶段，移除所有未被标记的节点，并重置已处理节点的状态。
  * - register(): 注册新的节点到GC图中。
  * - disconnect(): 断开选定根节点的引用，通常在该对象不再需要时调用。
  */
-public class ThreeColourNode implements Mark, Clear, ReferenceGC {
+public class ThreeColourNode implements Clear, Mark, ReferenceGC {
     private static final Logger logger = Logger.getLogger(ThreeColourNode.class.getName());
     private final Set<ReferenceGC> references = new HashSet<>();
     private Color color = Color.WHITE;  // 默认所有节点初始为白色
     private final String id; // 节点标识符
-    private final SimulatedObj simulatedObj;
+    private SimulatedObj simulatedObj;
 
     public ThreeColourNode(String id, SimulatedObj simulatedObj) {
         assert null != simulatedObj && null != id;
@@ -86,6 +86,10 @@ public class ThreeColourNode implements Mark, Clear, ReferenceGC {
         return this.simulatedObj;
     }
 
+    public void setSimulatedObj(SimulatedObj simulatedObj) {
+        this.simulatedObj = simulatedObj;
+    }
+
     @Override
     public String toString() {
         return "Node " + id;
@@ -110,10 +114,11 @@ public class ThreeColourNode implements Mark, Clear, ReferenceGC {
 
     public void freeMemory() {
         try {
-            logger.info("Freeing memory for node: " + id);
             SimulatedObj source = getSource();
             if (null != source) {
-                AppContext.getSimulatedHeap().free(source.getPointer(), source.getSize());
+                logger.info("Freeing memory for node: " + id);
+                AppContext.getSimulatedHeap().free(source.getPointer(), source.getAligningSize());
+                setSimulatedObj(null);
                 logger.info("Memory freed for node: " + id);
             }
         } catch (Exception e) {
