@@ -31,6 +31,7 @@ public class SimpleMethodGenerator implements MethodGenerator {
             mv.visitInsn(getReturnOpcode(fieldType));
             mv.visitMaxs(1, 1);
             mv.visitEnd();
+            existingMethods.add(methodName);
         }
     }
 
@@ -46,6 +47,7 @@ public class SimpleMethodGenerator implements MethodGenerator {
             mv.visitInsn(Opcodes.RETURN);
             mv.visitMaxs(2, 2);
             mv.visitEnd();
+            existingMethods.add(methodName);
         }
     }
     public void toString(ClassVisitor cv, String name, String type) {

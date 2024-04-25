@@ -53,6 +53,9 @@ public class Main {
          */
         AppContext.gc();
 
+        Order order5 = AppContext.newRoot_(Order.class, "N59", "Zhangsan");
+        Order order6 = AppContext.newRoot_(Order.class, "N59", "对对对对对对的点点滴滴哒哒哒哒哒哒哒哒哒");
+
     }
 
     private static int alignSize(int size) {

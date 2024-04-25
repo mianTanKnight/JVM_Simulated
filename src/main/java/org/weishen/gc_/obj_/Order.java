@@ -2,7 +2,6 @@ package org.weishen.gc_.obj_;
 
 public class Order {
     private final String no;
-
     private final String userName;
 
     public Order(String no, String userName) {

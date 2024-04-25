@@ -56,7 +56,7 @@ public interface SimulatedGC<T> {
      * 断开一个根对象的所有引用，并且回收此root , 通常在该根对象不再被程序使用时调用
      * @param root 要断开引用的根对象
      */
-    public void disconnectAndRecycle(Object root);
+    void disconnectAndRecycle(Object root);
 
     /**
      * 获取所有根对象的列表。

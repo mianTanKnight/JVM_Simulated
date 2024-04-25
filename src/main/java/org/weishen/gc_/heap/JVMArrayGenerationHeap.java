@@ -6,6 +6,7 @@ import org.weishen.gc_.heap.inter.SimulatedHeap;
 import org.weishen.gc_.obj_.inter.SimulatedObj;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.*;
@@ -35,7 +36,7 @@ import java.util.*;
  * 使用freedMemoryMaps 管理内存的回收与复用
  * freedMemoryMaps.V 是 DoublySkipList(基于双向链表的跳表 ) 可以在维持内存块顺序的同时，实现更高效的合并和分割操作，有效减少内存碎片化
  *
- * <p>
+ * <p>’»
  * 提供new_
  * 依然会使用Java的反射(假如A对象 会在Java堆中真正的存在 反射实例化,也会以二进制和我们上述的设计储存在此虚拟内存中)
  * 并且返回的对象一定是一个我们设计的基类(类似于 Object)
@@ -139,9 +140,35 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
     private final Map<String, Integer> freedMemorySizeMap = new HashMap<>();
 
     /**
-     * 内存锁 现在暂时是粗放的
+     * 分段锁实现
+     * 为了提高并发性和避免死锁，我们为不同的内存代分别实现了锁机制。
+     * 每个内存代（segment）通过索引在数组中对应一个锁对象。
+     * <p>
+     * 分段如下：
+     * - index 0 -> eden_: 年轻代中的Eden区。
+     * - index 1 -> sv1_: 年轻代中的第一个幸存者区（Survivor1）。
+     * - index 2 -> sv2_: 年轻代中的第二个幸存者区（Survivor2）。
+     * - index 3 -> old_: 老年代。
+     * <p>
+     * 死锁预防：
+     * 在进行跨代内存操作时（如对象晋升），可能需要同时获取多个锁。
+     * 为避免死锁，操作时获取锁的顺序必须从索引小的代向索引大的代进行。
+     * 这种顺序保证策略有效防止了死锁的发生。
      */
-    private final Object memLock = new Object();
+    private final Object[] segmentLock = new Object[]{
+            new Object(),  // 锁对象 for Eden
+            new Object(),  // 锁对象 for Survivor1
+            new Object(),  // 锁对象 for Survivor2
+            new Object()   // 锁对象 for Old
+    };
+
+    public Object getLock(String generation) {
+        if (EDEN_.equals(generation)) return segmentLock[0];
+        if (SV1_.equals(generation)) return segmentLock[1];
+        if (SV2_.equals(generation)) return segmentLock[2];
+        if (OLD_.equals(generation)) return segmentLock[3];
+        return null;
+    }
 
     /***容量***/
     private final int capacity;
@@ -218,8 +245,8 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
      * allocate 需要保证线程线程安全
      * 返回指定可写入的point(但没有写入,可以直接覆盖不用置0)
      *
-     * @param normalizedSize       申请的大小
-     * @param generation 指定的分代
+     * @param normalizedSize 申请的大小
+     * @param generation     指定的分代
      * @return 可写入的point
      * @throws OutOfMemoryError
      */
@@ -227,7 +254,7 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
         assert normalizedSize > 0 && (normalizedSize & 7) == 0;
         Integer allocatePointer;
 
-        synchronized (this.memLock) {
+        synchronized (getLock(generation)) {
             //检查可使用的回收内存
             Integer freeMemoryPointer = findInFreedMemory(normalizedSize, generation);
             if (null != freeMemoryPointer) return freeMemoryPointer;
@@ -241,7 +268,6 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
         }
         //返回可用的指针 但Map已更新成next
         return allocatePointer;
-
     }
 
     private int alignSize(int size) {
@@ -313,7 +339,7 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
         String generation = getGeneration(point);
 
         // 锁定内存操作，确保线程安全
-        synchronized (memLock) {
+        synchronized (getLock(generation)) {
             // 重置指定内存区域，填充为0
             memSet(point, size, null, true);
             // 获取当前代对应的跳表，如果不存在则创建一个新的
@@ -357,7 +383,6 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
 
     public void memSet(Object o, String generation) throws IOException, OutOfMemoryError, Exception {
         if (null == o) return;
-
         byte[] objectBytes;
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream(); ObjectOutputStream oos = new ObjectOutputStream(baos)) {
             oos.writeObject(o);
@@ -396,36 +421,16 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
      * @param o       要写入的对象，如果为null，则只进行重置操作。
      * @param isReset 是否在写入前将内存区域重置为零。
      */
-    public void memSet(int pointer, int size, Object o, boolean isReset) throws IOException {
+    public void memSet(int pointer, int size, Object o, boolean isReset) throws IOException, OutOfMemoryError, Exception {
         // 验证指针和大小的有效性
         assert pointer > 0 && (pointer & 7) == 0 && size > 0 && (size & 7) == 0;
-
         // 如果需要，重置内存区域为0
         if (isReset) {
             Arrays.fill(heapMemory, pointer, pointer + size, (byte) 0);
         }
-
         // 如果提供了对象，则将其序列化并写入内存
-        if (o != null) {
-            // 序列化对象到字节数组
-            try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                 ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-                oos.writeObject(o);
-                oos.flush();
-                byte[] objectBytes = baos.toByteArray();
-
-                System.out.println(objectBytes.length);
-                // 检查对象大小是否适合已分配的内存块
-                if (objectBytes.length > size) {
-                    throw new IllegalArgumentException("Object size is larger than allocated memory block.");
-                }
-
-                // 将对象字节复制到内存中
-                System.arraycopy(objectBytes, 0, heapMemory, pointer, objectBytes.length);
-            }
-
-
-        }
+        if (o != null)
+            memSet(o, getGeneration(pointer));
     }
 
     private String getGeneration(int point) {
@@ -453,25 +458,37 @@ public class JVMArrayGenerationHeap implements SimulatedHeap, Generation {
     /**
      * move 通常是代与代之间的移动
      * 安全的move 需要配合allocate使用
-     *
      * @param srcPoint 源内存地址（指针）
      * @param desPoint 目标内存地址（指针）
      * @param size     移动的内存大小
-     * @throws Exception
      */
     @Override
     public void move(int srcPoint, int desPoint, int size) throws Exception {
         //检查desPoint 的合法性和可行性
-        String generation = getGeneration(desPoint);
-        Integer assigned = assignedAddressPointers.get(generation);
+        String srcGeneration = getGeneration(srcPoint);
+        String desGeneration = getGeneration(desPoint);
+        Object[] locks = new Object[2];
+        //
+        Integer srcAssigned = assignedAddressPointers.get(srcGeneration);
+        Integer desAssigned = assignedAddressPointers.get(desGeneration);
         //如果大于当前的分配指针 就证明不是覆盖的 直接检查边界
-        if (desPoint >= assigned && isSpaceFull(size, generation)) {
-            throw new OutOfMemoryError("Heap space is full in " + generation + " generation. move failed");
+        if (desPoint >= desAssigned && isSpaceFull(size, desGeneration)) {
+            throw new OutOfMemoryError("Heap space is full in " + desGeneration + " generation. move failed");
         }
-        //
-        System.arraycopy(heapMemory, srcPoint, heapMemory, desPoint, size);
-        //
-        free(srcPoint, size);
+        if (srcAssigned < desAssigned) {
+            locks[0] = getLock(srcGeneration);
+            locks[1] = getLock(desGeneration);
+        } else {
+            locks[1] = getLock(srcGeneration);
+            locks[0] = getLock(desGeneration);
+        }
+        /** 如果是同一个代 那么 lock[0] = lock[1] sync 是可重入的 ,如果不是同一代 assigned 可以确定 分段锁的 优先级 越小优先级越高 */
+        synchronized (locks[0]) {
+            synchronized (locks[1]) {
+                System.arraycopy(heapMemory, srcPoint, heapMemory, desPoint, size);
+                free(srcPoint, size);
+            }
+        }
     }
 
     @Override
