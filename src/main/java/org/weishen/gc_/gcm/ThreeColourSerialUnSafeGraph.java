@@ -32,6 +32,12 @@ public class ThreeColourSerialUnSafeGraph implements SimulatedGC<ThreeColourNode
     private final Map<SimulatedObj, ThreeColourNode> nodesMap = new HashMap<>();
     private final List<ThreeColourNode> shortActingRoots = new ArrayList<>();
 
+    @Override
+    public void gc() {
+        mark();
+        collect();
+    }
+
     /**
      * 标记作业
      */

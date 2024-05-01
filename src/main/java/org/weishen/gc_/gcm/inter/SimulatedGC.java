@@ -11,10 +11,7 @@ public interface SimulatedGC<T> {
     /**
      * 执行完整的垃圾回收周期，包括标记和清扫两个阶段。
      */
-    default void gc(){
-        mark();
-        collect();
-    }
+    void gc();
 
     /**
      * 标记阶段：从根对象开始标记所有可达对象，以防止它们被回收。

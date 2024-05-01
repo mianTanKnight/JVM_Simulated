@@ -22,7 +22,6 @@ import java.util.function.Consumer;
  */
 public class NewEhASM {
 
-
     public static byte[] enhanceClass(byte[] classBytes) throws Exception {
         ClassReader cr = new ClassReader(classBytes);
         ClassWriter cw = new ClassWriter(cr,ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
