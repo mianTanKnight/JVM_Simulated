@@ -5,6 +5,7 @@ import org.weishen.gc_.gcm.inter.SimulatedGC;
 import org.weishen.gc_.obj_.inter.SimulatedObj;
 
 import java.util.*;
+import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 
 /**
@@ -33,9 +34,14 @@ public class ThreeColourSerialUnSafeGraph implements SimulatedGC<ThreeColourNode
     private final List<ThreeColourNode> shortActingRoots = new ArrayList<>();
 
     @Override
-    public void gc() {
-        mark();
-        collect();
+    public void gc(Lock stwLock) {
+        try {
+            stwLock.lock();
+            mark();
+            collect();
+        } finally {
+            stwLock.unlock();
+        }
     }
 
     /**
@@ -90,6 +96,7 @@ public class ThreeColourSerialUnSafeGraph implements SimulatedGC<ThreeColourNode
     /**
      * 短效的GCroot 在断开引用之后并回收
      * 但注意回收动作由sweep()负责 的这里只负责"准备工作"
+     *
      * @param root 要断开引用的根对象
      */
     @Override
@@ -113,6 +120,7 @@ public class ThreeColourSerialUnSafeGraph implements SimulatedGC<ThreeColourNode
                 rootNode.getReference().clear();
         }
     }
+
     @Override
     public void register(ThreeColourNode obj) {
         nodesMap.putIfAbsent(obj.getSource(), obj);
